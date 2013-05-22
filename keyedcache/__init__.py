@@ -14,17 +14,30 @@ Example:
 
 More info below about parameters.
 """
+# For keyedcache developers:
+# No additional keyword parameters should be added to the definition of
+# cache_set, cache_get, cache_delete or cache_key in the future.
+# Otherwise you must know what are you doing! Any appplication that would use
+# a new parameter will must check on startup that keyedcache is not older than
+# a required version !!(Otherwise kwargs unknown by an old version keyedcache
+# will be used as keys and cache_set/cache_get will use different keys, which
+# causes nothing cached.)
 
 from django.conf import settings
-from django.core.cache.backends.base import InvalidCacheBackendError
+from django.core.cache import get_cache, InvalidCacheBackendError, DEFAULT_CACHE_ALIAS
+from django.core.exceptions import ImproperlyConfigured
 from django.utils.encoding import smart_str
-from django.utils.hashcompat import md5_constructor
+from django.utils.log import NullHandler
+from hashlib import md5
 from keyedcache.utils import is_string_like, is_list_or_tuple
+from warnings import warn
 import cPickle as pickle
 import logging
 import types
 
-log = logging.getLogger('keyedcache')
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
+log.addHandler(NullHandler())
 
 # The debugging variable CACHED_KEYS is exact only with the the Django
 # debugging server (or any single worker process server) and without restarting
@@ -40,51 +53,39 @@ CACHE_HITS = 0
 KEY_DELIM = "::"
 REQUEST_CACHE = {'enabled' : False}
 
-try:
-    from django.core.cache import get_cache
-    cache_alias = getattr(settings, 'KEYEDCACHE_ALIAS', 'default')
-    cache = get_cache(cache_alias)
-except InvalidCacheBackendError:
-    from django.core.cache import cache
+cache, cache_alias, CACHE_TIMEOUT, _CACHE_ENABLED = 4 * (None,)
 
-try:
-    CACHES = getattr(settings, "CACHES")
-    CACHE_BACKEND = CACHES['default']['BACKEND']
+def keyedcache_configure():
+    "Initial configuration (or reconfiguration during tests)."
+    global cache, cache_alias, CACHE_TIMEOUT, _CACHE_ENABLED
+    cache_alias = getattr(settings, 'KEYEDCACHE_ALIAS', DEFAULT_CACHE_ALIAS)
     try:
-        CACHE_PREFIX = CACHES['default']['KEY_PREFIX']
-    except KeyError:
-        CACHE_PREFIX = str(settings.SITE_ID)
-        log.warn("No KEY_PREFIX found in settings.CACHES['default'], using SITE_ID.  Please update your settings to add a CACHES")
-    
-    try:
-        CACHE_TIMEOUT = CACHES['default']['TIMEOUT']
-    except KeyError:
-        CACHE_TIMEOUT = getattr(settings, 'CACHE_TIMEOUT', 0)
-        log.warn("No TIMEOUT found in settings.CACHES['default'], so we used %s%s. "
-                 "Please update your settings to add a TIMEOUT and avoid this warning.",
-                 CACHE_TIMEOUT,
-                 CACHE_TIMEOUT == 0 and ", disabling the cache system" or "")
-    
-except AttributeError:
-    try:
-        CACHE_BACKEND = settings.CACHE_BACKEND
-    except AttributeError:
-        CACHE_BACKEND = "locmem://"
-        log.warn("No cache settings are set. Using default locmem. Please update your settings")
-    
-    try:
-        CACHE_PREFIX = settings.CACHE_PREFIX
-    except AttributeError:
-        CACHE_PREFIX = str(settings.SITE_ID)
-        log.warn("No CACHE_PREFIX found in settings, using SITE_ID.  Please update your settings to add a CACHE_PREFIX")
+        cache = get_cache(cache_alias)
+    except InvalidCacheBackendError:
+        log.warn("Warning: Could not find backend '%s': uses %s" % (cache_alias, DEFAULT_CACHE_ALIAS))
+        cache_alias = DEFAULT_CACHE_ALIAS  # it is 'default'
+        from django.core.cache import cache
+    CACHE_TIMEOUT = cache.default_timeout
+    if CACHE_TIMEOUT == 0:
+        log.warn("disabling the cache system because TIMEOUT=0")
+        
+    _CACHE_ENABLED = CACHE_TIMEOUT > 0 and not cache.__module__.endswith('dummy')
 
-    try:
-        CACHE_TIMEOUT = settings.CACHE_TIMEOUT
-    except AttributeError:
-        CACHE_TIMEOUT = 0
-        log.warn("No CACHE_TIMEOUT found in settings, so we used 0, disabling the cache system.  Please update your settings to add a CACHE_TIMEOUT and avoid this warning.")
+    if not cache.key_prefix and (hasattr(settings, 'CACHE_PREFIX') or settings.SITE_ID != 1):
+        if hasattr(settings, 'CACHE_PREFIX'):
+            warn("""The setting "CACHE_PREFIX" is obsoleted and ignored by keyedcache."""
+                 """ Use "CACHES = {'default': {... 'KEY_PREFIX': '...'}}" instead.""")
+        if settings.SITE_ID != 1:
+            warn("If you use multiple sites, an explicit KEY_PREFIX should be defined"
+                 " in \"CACHES = {'default': {... 'KEY_PREFIX': '...'}}\" in order to"
+                 " differentiate caches or to explicitely confirm they should be shared."
+                 " An easy solution is \"'CACHE_PREFIX': str(settings.SITE_ID)\".")
+        if not cache.__module__.split('.')[-1] in ('locmem', 'dummy'):
+            raise ImproperlyConfigured(
+                    "Setting KEY_PREFIX is obligatory for production caches. See the previous warning.")
 
-_CACHE_ENABLED = CACHE_TIMEOUT > 0
+keyedcache_configure()
+
 
 class CacheWrapper(object):
     def __init__(self, val, inprocess=False):
@@ -354,14 +355,11 @@ def cache_key(*keys, **pairs):
             keys.extend((k, pairs[k]))
 
     key = KEY_DELIM.join([_hash_or_string(x) for x in keys])
-    prefix = CACHE_PREFIX + KEY_DELIM
-    if not key.startswith(prefix):
-        key = prefix+key
     return key.replace(" ", ".")
 
 def md5_hash(obj):
     pickled = pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
-    return md5_constructor(pickled).hexdigest()
+    return md5(pickled).hexdigest()
 
 
 def is_memcached_backend():
