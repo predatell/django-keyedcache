@@ -253,7 +253,7 @@ def cache_get(*keys, **kwargs):
         other kwargs:
             Unknown key=val is interpreted like two aditional keys: (key, val)
     """
-    if kwargs.get('default'):
+    if 'default' in kwargs:
         default_value = kwargs.pop('default')
         use_default = True
     else:
