@@ -30,7 +30,6 @@ from django.utils.encoding import smart_str
 from hashlib import md5
 from keyedcache.utils import is_string_like, is_list_or_tuple
 from warnings import warn
-import cPickle as pickle
 import logging
 import types
 
@@ -147,7 +146,7 @@ def cache_delete(*keys, **kwargs):
         if (keys or kwargs):
             key = cache_key(*keys, **kwargs)
 
-            if CACHED_KEYS.has_key(key):
+            if key in CACHED_KEYS:
                 del CACHED_KEYS[key]
                 removed.append(key)
 
@@ -224,7 +223,7 @@ def cache_function(length=CACHE_TIMEOUT):
                 try:
                     value = cache_get('func', func.__name__, func.__module__, args, kwargs)
 
-                except NotCachedError, e:
+                except NotCachedError as e:
                     # This will set a temporary value while ``func`` is being
                     # processed. When using threads, this is vital, as otherwise
                     # the function can be called several times before it finishes
@@ -234,7 +233,7 @@ def cache_function(length=CACHE_TIMEOUT):
                     value = func(*args, **kwargs)
                     cache_set(e.key, value=value, length=length)
 
-                except MethodNotFinishedError, e:
+                except MethodNotFinishedError as e:
                     value = func(*args, **kwargs)
 
             return value
@@ -254,7 +253,7 @@ def cache_get(*keys, **kwargs):
         other kwargs:
             Unknown key=val is interpreted like two aditional keys: (key, val)
     """
-    if kwargs.has_key('default'):
+    if kwargs.get('default'):
         default_value = kwargs.pop('default')
         use_default = True
     else:

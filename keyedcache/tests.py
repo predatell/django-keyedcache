@@ -123,7 +123,7 @@ class TestCacheDisable(TestCase):
         try:
             keyedcache.cache_get('disabled')
             self.fail('should have raised NotCachedError')
-        except keyedcache.NotCachedError, nce:
+        except keyedcache.NotCachedError as nce:
             key = keyedcache.cache_key('disabled')
             self.assertEqual(nce.key, key)
 
