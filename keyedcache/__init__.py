@@ -31,7 +31,7 @@ from hashlib import md5
 from keyedcache.utils import is_string_like, is_list_or_tuple
 from warnings import warn
 import logging
-import types
+import six
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -334,7 +334,7 @@ def cache_set(*keys, **kwargs):
             cache_set_request(key, val)
 
 def _hash_or_string(key):
-    if is_string_like(key) or isinstance(key, (types.IntType, types.LongType, types.FloatType)):
+    if is_string_like(key) or isinstance(key, (six.integer_types, float)):
         return smart_str(key)
     else:
         try:
@@ -359,7 +359,7 @@ def cache_key(*keys, **pairs):
     return key.replace(" ", ".")
 
 def md5_hash(obj):
-    pickled = pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
+    pickled = six.moves.cPickle.dumps(obj, protocol=six.moves.cPickle.HIGHEST_PROTOCOL)
     return md5(pickled).hexdigest()
 
 
