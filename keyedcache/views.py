@@ -65,7 +65,7 @@ def stats_page(request):
 
     return render_to_response('keyedcache/stats.html', context_instance=ctx)
 
-stats_page = user_passes_test(lambda u: u.is_authenticated() and u.is_staff, login_url='/accounts/login/')(stats_page)
+stats_page = user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='/accounts/login/')(stats_page)
 
 def view_page(request):
     keys = keyedcache.CACHED_KEYS.keys()
@@ -78,7 +78,7 @@ def view_page(request):
 
     return render_to_response('keyedcache/view.html', context_instance=ctx)
 
-view_page = user_passes_test(lambda u: u.is_authenticated() and u.is_staff, login_url='/accounts/login/')(view_page)
+view_page = user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='/accounts/login/')(view_page)
 
 def delete_page(request):
     log.debug("delete_page")
@@ -100,4 +100,4 @@ def delete_page(request):
 
     return render_to_response('keyedcache/delete.html', context_instance=ctx)
 
-delete_page = user_passes_test(lambda u: u.is_authenticated() and u.is_staff, login_url='/accounts/login/')(delete_page)
+delete_page = user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='/accounts/login/')(delete_page)
