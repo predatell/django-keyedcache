@@ -2,8 +2,7 @@ from django import forms
 from django.conf import settings
 from django.contrib.auth.decorators import user_passes_test
 from django.http import HttpResponseRedirect
-from django.shortcuts import render_to_response
-from django.template import RequestContext
+from django.shortcuts import render
 from django.utils.translation import ugettext_lazy as _
 import keyedcache
 import logging
@@ -53,7 +52,7 @@ def stats_page(request):
     except keyedcache.CacheNotRespondingError:
         running = False
 
-    ctx = RequestContext(request, {
+    ctx = {
         'cache_count' : len(keyedcache.CACHED_KEYS),
         'cache_running' : running,
         'cache_time' : keyedcache.CACHE_TIMEOUT,
@@ -61,9 +60,9 @@ def stats_page(request):
         'cache_calls' : keyedcache.CACHE_CALLS,
         'cache_hits' : keyedcache.CACHE_HITS,
         'hit_rate' : "%02.1f" % rate
-    })
+    }
 
-    return render_to_response('keyedcache/stats.html', context_instance=ctx)
+    return render(request, 'keyedcache/stats.html', context_instance=ctx)
 
 stats_page = user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='/accounts/login/')(stats_page)
 
@@ -72,11 +71,11 @@ def view_page(request):
 
     keys.sort()
 
-    ctx = RequestContext(request, {
+    ctx = {
         'cached_keys' : keys,
-    })
+    }
 
-    return render_to_response('keyedcache/view.html', context_instance=ctx)
+    return render_to_response(request, 'keyedcache/view.html', context_instance=ctx)
 
 view_page = user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='/accounts/login/')(view_page)
 
@@ -94,10 +93,10 @@ def delete_page(request):
         log.debug("new form")
         form = CacheDeleteForm()
 
-    ctx = RequestContext(request, {
+    ctx = {
         'form' : form,
-    })
+    }
 
-    return render_to_response('keyedcache/delete.html', context_instance=ctx)
+    return render_to_response(request, 'keyedcache/delete.html', context_instance=ctx)
 
 delete_page = user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='/accounts/login/')(delete_page)
