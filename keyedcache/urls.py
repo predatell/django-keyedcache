@@ -1,12 +1,12 @@
 """
 URLConf for Caching app
 """
-from django.conf.urls import url
+from django.urls import re_path
 
 from . import views
 
 urlpatterns = [
-    url(r'^$', views.stats_page, {}, 'keyedcache_stats'),
-    url(r'^view/$', views.view_page, {}, 'keyedcache_view'),
-    url(r'^delete/$', views.delete_page, {}, 'keyedcache_delete'),
+    re_path(r'^$', views.stats_page, {}, 'keyedcache_stats'),
+    re_path(r'^view/$', views.view_page, {}, 'keyedcache_view'),
+    re_path(r'^delete/$', views.delete_page, {}, 'keyedcache_delete'),
 ]
